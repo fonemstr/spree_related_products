@@ -1,7 +1,3 @@
-source 'http://rubygems.org'
-
-group :test do
-  gem 'faker'
-end
-
+source 'https://rubygems.org'
+gem 'spree', github: 'spree/spree', :branch => 'master'
 gemspec

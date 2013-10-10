@@ -13,15 +13,15 @@ describe Spree::Product do
 
   context "instance" do
     before(:each) do
-      @product = Factory(:product)
+      @product = FactoryGirl.create(:product)
       @relation_type = Spree::RelationType.create(:name => "Related Products", :applies_to => "Spree::Product")
     end
 
     describe ".relations" do
       it "has many relations" do
         @product.save!
-        other1 = Factory(:product)
-        other2 = Factory(:product)
+        other1 = FactoryGirl.create(:product)
+        other2 = FactoryGirl.create(:product)
 
         relation1 = Spree::Relation.create!(:relatable => @product, :related_to => other1, :relation_type => @relation_type)
         relation2 = Spree::Relation.create!(:relatable => @product, :related_to => other2, :relation_type => @relation_type)
@@ -33,7 +33,7 @@ describe Spree::Product do
 
       it "has many relations for different RelationTypes" do
         @product.save!
-        other = Factory(:product)#valid_product!
+        other = FactoryGirl.create(:product)#valid_product!
 
         other_relation_type = Spree::RelationType.new(:name => "Recommended Products")
 
@@ -49,13 +49,21 @@ describe Spree::Product do
     describe "RelationType finders" do
       before(:each) do
         @product.save!
-        @other = Factory(:product)
+        @other = FactoryGirl.create(:product)
         @relation = Spree::Relation.create!(:relatable => @product, :related_to => @other, :relation_type => @relation_type)
         @product.reload
       end
 
       it "should return the relevant relations" do
         @product.related_products.should include(@other)
+      end
+
+      it "should recognize the method with has_related_products?(method)" do
+        @product.has_related_products?('related_products').should be_true
+      end
+
+      it "should not recognize non-existent methods with has_related_products?(method)" do
+        @product.has_related_products?('unrelated_products').should_not be_true
       end
 
       it "should be the pluralised form of the RelationType name" do
@@ -65,7 +73,7 @@ describe Spree::Product do
 
       it "should not return relations for another RelationType" do
         @product.save!
-        other2 = Factory(:product)
+        other2 = FactoryGirl.create(:product)
 
         other_relation_type = Spree::RelationType.new(:name => "Recommended Products")
 
@@ -105,12 +113,12 @@ describe Spree::Product do
       context "with an enhanced Product.relation_filter" do
         it "should restrict the filter" do
           relation_filter = Spree::Product.relation_filter
-          Spree::Product.should_receive(:relation_filter).at_least(:once).and_return(relation_filter.includes(:master).where('spree_variants.count_on_hand > 2'))
+          Spree::Product.should_receive(:relation_filter).at_least(:once).and_return(relation_filter.includes(:master).where('spree_variants.cost_price > 20'))
 
-          @other.master.update_attributes({:count_on_hand => 1}, :without_protection => true)
+          @other.master.update_attributes({:cost_price => 10})
 
-          other2 = Factory(:product)
-          other2.master.update_attributes({:count_on_hand => 3}, :without_protection => true)
+          other2 = FactoryGirl.create(:product)
+          other2.master.update_attributes({:cost_price => 30})
           relation = Spree::Relation.create!(:relatable => @product, :related_to => other2, :relation_type => @relation_type)
 
           results = @product.related_products

@@ -1,5 +1,5 @@
 Spree::Product.class_eval do
-  has_many :relations, :as => :relatable
+  has_many :relations, :as => :relatable, :order => :position
 
   # Returns all the Spree::RelationType's which apply_to this class.
   def self.relation_types
@@ -34,16 +34,7 @@ Spree::Product.class_eval do
     # Fix for Ruby 1.9
     raise NoMethodError if method == :to_ary
     
-    relation_type = nil
-    begin
-      relation_type =  self.class.relation_types.detect { |rt| rt.name.downcase.gsub(" ", "_").pluralize == method.to_s.downcase }
-    rescue ActiveRecord::StatementInvalid => error
-      # This exception is throw if the relation_types table does not exist. 
-      # And this method is getting invoked during the execution of a migration 
-      # from another extension when both are used in a project.
-      relation_type = nil
-    end
-
+    relation_type = find_relation_type(method)
     if relation_type.nil?
       super
     else
@@ -51,15 +42,31 @@ Spree::Product.class_eval do
     end
   end
 
+  def has_related_products?(relation_method)
+    find_relation_type(relation_method).present?
+  end
+
   private
+
+  def find_relation_type(relation_name)
+    begin
+      self.class.relation_types.detect { |rt| rt.name.downcase.gsub(" ", "_").pluralize == relation_name.to_s.downcase }
+    rescue ActiveRecord::StatementInvalid => error
+      # This exception is throw if the relation_types table does not exist. 
+      # And this method is getting invoked during the execution of a migration 
+      # from another extension when both are used in a project.
+      nil
+    end
+     
+  end
 
   # Returns all the Products that are related to this record for the given RelationType.
   #
   # Uses the Relations to find all the related items, and then filters
   # them using +Product.relation_filter+ to remove unwanted items.
   def relations_for_relation_type(relation_type)
-    # Find all the relations that belong to us for this RelationType
-    related_ids = relations.where(:relation_type_id => relation_type.id).select(:related_to_id).collect(&:related_to_id)
+    # Find all the relations that belong to us for this RelationType, ordered by position
+    related_ids = relations.where(:relation_type_id => relation_type.id).order(:position).pluck(:related_to_id)
 
     # Construct a query for all these records
     result = self.class.where(:id => related_ids)
@@ -67,6 +74,9 @@ Spree::Product.class_eval do
     # Merge in the relation_filter if it's available
     result = result.merge(self.class.relation_filter.scoped) if relation_filter
 
+    # make sure results are in same order as related_ids array  (position order) 
+    result = related_ids.collect {|id| result.detect {|x| x.id == id} } if result.present?
+    
     result
   end
 
