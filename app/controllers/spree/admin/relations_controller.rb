@@ -33,9 +33,15 @@ module Spree
 
       def destroy
         @relation = Relation.find(params[:id])
-        @relation.destroy
-
-        respond_with(@relation)
+        
+        if @relation.destroy
+          flash[:success] = Spree.t(:successfully_removed, :resource => Spree.t(:product_relation))
+        end
+        
+        respond_to do |format|
+          format.html { redirect_to related_admin_product_path(@product)}
+          format.js   { render :layout => false }
+        end
       end
 
       private
